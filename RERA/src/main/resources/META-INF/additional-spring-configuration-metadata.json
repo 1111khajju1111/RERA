@@ -1,0 +1,27 @@
+{"properties": [
+  {
+    "name": "ai-service.base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'ai-service.base-url'"
+  },
+  {
+    "name": "file-storage.upload-dir",
+    "type": "java.lang.String",
+    "description": "A description for 'file-storage.upload-dir'"
+  },
+  {
+    "name": "spring.flyway.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.flyway.enabled'"
+  },
+  {
+    "name": "spring.flyway.locations",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.flyway.locations'"
+  },
+  {
+    "name": "spring.flyway.baseline-on-migrate",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.flyway.baseline-on-migrate'"
+  }
+]}

@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-white antialiased;
+    background-image:
+      radial-gradient(circle at 20% -10%, rgba(59,130,246,0.15), transparent 40%),
+      radial-gradient(circle at 80% 0%, rgba(168,85,247,0.12), transparent 40%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-2xl border border-border bg-white/[0.03] backdrop-blur-xl;
+  }
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:bg-white/[0.06] hover:border-white/20;
+  }
+  .brand-text-gradient {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+}

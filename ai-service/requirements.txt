@@ -1,0 +1,29 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+pydantic==2.9.2
+pydantic-settings==2.5.2
+ezdxf==1.3.4
+python-dotenv==1.0.1
+python-multipart==0.0.9
+httpx==0.27.2
+reportlab==4.2.5
+python-docx==1.1.2
+openpyxl==3.1.5
+groq==0.11.0
+
+# NOTE: ifcopenshell is intentionally NOT pinned here.
+# It is not reliably pip-installable (conda-forge or manual wheel only,
+# platform-specific). IFC parsing is stubbed with a defined interface in
+# cad_parsing/ifc_parser.py — wire in a real ifcopenshell install for
+# Phase 4b once you're on a fixed deployment target (Docker image can
+# pull the platform wheel directly; see IfcOpenShell releases page).
+
+# NOTE: switched from OpenAI to Groq (user request). Removed openai,
+# langchain, and langchain-openai — the original spec listed LangChain in
+# the tech stack, but app/llm/*.py never actually used it (plain
+# chat-completion calls only), so it was dead weight even before this
+# switch. Default model is openai/gpt-oss-120b: an open-weight model
+# OpenAI released, hosted on Groq's own hardware — NOT a call to OpenAI's
+# API. See .env.example for the model/key configuration.
