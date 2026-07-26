@@ -13,6 +13,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -29,6 +31,8 @@ import java.util.Optional;
 @Component
 public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger logger = LoggerFactory.getLogger(BearerTokenAuthenticationFilter.class);
+
     private final AuthTokenRepository authTokenRepository;
 
     public BearerTokenAuthenticationFilter(AuthTokenRepository authTokenRepository) {
@@ -44,11 +48,19 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
             String tokenValue = header.substring(7).trim();
             Optional<AuthToken> tokenOpt = authTokenRepository.findByToken(tokenValue);
 
-            if (tokenOpt.isPresent() && tokenOpt.get().getExpiresAt().isAfter(LocalDateTime.now())) {
-                User user = tokenOpt.get().getUser();
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
-                var authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                if (tokenOpt.isPresent() && tokenOpt.get().getExpiresAt().isAfter(LocalDateTime.now())) {
+                    User user = tokenOpt.get().getUser();
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
+                    var authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            } catch (Exception ex) {
+                // Never let a bad/unexpected token record take down the
+                // whole filter chain — fall through unauthenticated and
+                // let the normal authorizeHttpRequests rule (401/403)
+                // handle it, instead of a raw 500 from here.
+                logger.warn("Failed to authenticate bearer token", ex);
             }
             // An invalid/expired token is deliberately NOT rejected here with
             // a 401 — it's just left unauthenticated, and Spring Security's
