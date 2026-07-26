@@ -3,6 +3,8 @@ package com.rera.auditor.service;
 import com.rera.auditor.entity.Project;
 import com.rera.auditor.entity.ProjectVersion;
 import com.rera.auditor.repository.ProjectVersionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.nio.file.StandardCopyOption;
 
 @Service
 public class UploadService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UploadService.class);
 
     private final ProjectVersionRepository projectVersionRepository;
     private final ProjectService projectService;
@@ -73,6 +77,7 @@ public class UploadService {
             aiServiceClient.generateSuggestions(projectId);
             projectService.updateStatus(projectId, "AUDITED");
         } catch (Exception e) {
+            logger.error("AI pipeline failed for project {} (file: {})", projectId, filePath, e);
             projectService.updateStatus(projectId, "PROCESSING_FAILED");
         }
     }
