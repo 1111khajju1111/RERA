@@ -33,10 +33,17 @@ def _bounding_box(points: list[tuple[float, float]]) -> dict:
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
     return {
-        "pos_x": round(min_x, 3),
-        "pos_y": round(min_y, 3),
-        "width": round(max_x - min_x, 3),
-        "height": round(max_y - min_y, 3),
+        # float(...) here is deliberate, not cosmetic: LWPOLYLINE points
+        # come back from ezdxf as numpy.float64 (see _entity_points), and
+        # round() on a numpy scalar returns another numpy scalar. Without
+        # this cast, psycopg2 can't adapt the value and silently inlines
+        # its repr() ("np.float64(0.23)") as bare SQL text, which Postgres
+        # then parses as a schema-qualified identifier and fails with
+        # 'schema "np" does not exist'.
+        "pos_x": float(round(min_x, 3)),
+        "pos_y": float(round(min_y, 3)),
+        "width": float(round(max_x - min_x, 3)),
+        "height": float(round(max_y - min_y, 3)),
     }
 
 
@@ -50,13 +57,16 @@ def _polygon_area(points: list[tuple[float, float]]) -> float:
         x1, y1 = points[i]
         x2, y2 = points[(i + 1) % n]
         area += x1 * y2 - x2 * y1
-    return abs(area) / 2.0
+    return float(abs(area) / 2.0)
 
 
 def _entity_points(entity) -> list[tuple[float, float]] | None:
     dxftype = entity.dxftype()
     if dxftype == "LWPOLYLINE":
-        return [(p[0], p[1]) for p in entity.get_points()]
+        # get_points() yields numpy.float64, not plain float — cast here
+        # so every downstream consumer (bbox, area, geometry_json) only
+        # ever sees native Python floats.
+        return [(float(p[0]), float(p[1])) for p in entity.get_points()]
     if dxftype == "LINE":
         start = entity.dxf.start
         end = entity.dxf.end
