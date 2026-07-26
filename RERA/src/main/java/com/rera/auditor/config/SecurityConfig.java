@@ -62,7 +62,10 @@ public class SecurityConfig {
         // Frontend origin
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-                "http://localhost:5173"
+                "http://localhost:5173",
+                "http://localhost:8000",
+                "https://rera-zeta.vercel.app/",
+                "https://rera-1-nwou.onrender.com"
         ));
 
         config.setAllowedMethods(List.of(
