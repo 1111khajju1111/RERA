@@ -48,10 +48,25 @@ export default function ReportsPage() {
     }
   }
 
-  function handleDownload(reportId: number) {
-    // Plain navigation, not fetch — the session cookie goes along automatically
-    // and the browser handles the file download/save-as itself.
-    window.open(reportApi.downloadUrl(projectId, reportId), "_blank");
+  async function handleDownload(reportId: number, format: string) {
+    // window.open(downloadUrl) only worked with cookie-based auth, where
+    // the browser attaches credentials to any navigation automatically.
+    // With bearer-token auth, the token only goes out on requests we
+    // build ourselves — so fetch the file with the header attached, then
+    // trigger a save via a temporary object URL.
+    try {
+      const blob = await reportApi.downloadBlob(projectId, reportId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report_${projectId}.${format.toLowerCase()}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Download failed");
+    }
   }
 
   const downloadableReports = reports.filter((r) => r.downloadable);
@@ -114,7 +129,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(r.id)}>
+                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(r.id, r.format)}>
                     <Download className="h-3.5 w-3.5" /> Download
                   </Button>
                 </div>

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UserResponse } from "@/lib/types";
 import { authApi } from "@/lib/api";
+import { setToken, clearToken } from "@/lib/token-storage";
 
 interface AuthState {
   user: UserResponse | null;
@@ -13,10 +14,13 @@ interface AuthState {
   clearError: () => void;
 }
 
-// Persisted to localStorage purely so the UI can optimistically show the
-// logged-in name without a round trip on page load. It does NOT replace
-// the session cookie for actual auth — every real request still relies
-// on the httpOnly JSESSIONID cookie sent by the browser automatically.
+// `user` here is persisted purely so the UI can optimistically show the
+// logged-in name/avoid a flash-redirect on refresh — it is NOT the
+// mechanism that authenticates API calls. The actual bearer token lives
+// separately in lib/token-storage.ts (see api.ts's authHeaders()), kept
+// out of this Zustand blob deliberately to avoid a circular import
+// between this file (which imports authApi from api.ts) and api.ts
+// (which would otherwise need to import this store to read the token).
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -27,7 +31,8 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const user = await authApi.login({ email, password });
+          const { user, token } = await authApi.login({ email, password });
+          setToken(token);
           set({ user, isLoading: false });
         } catch (err: any) {
           set({ error: err.message || "Login failed", isLoading: false });
@@ -39,7 +44,8 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           await authApi.register({ name, email, password });
-          const user = await authApi.login({ email, password });
+          const { user, token } = await authApi.login({ email, password });
+          setToken(token);
           set({ user, isLoading: false });
         } catch (err: any) {
           set({ error: err.message || "Registration failed", isLoading: false });
@@ -49,6 +55,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         await authApi.logout().catch(() => {});
+        clearToken();
         set({ user: null });
       },
 

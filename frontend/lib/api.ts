@@ -1,7 +1,14 @@
 /**
- * Thin fetch wrapper for the Spring Boot backend. Sends credentials
- * (cookies) on every request since auth is session-based (Phase 3
- * SecurityConfig), not JWT — so there's no token to attach manually.
+ * Thin fetch wrapper for the Spring Boot backend.
+ *
+ * Auth: bearer token (Authorization header), NOT cookies. Originally this
+ * used session cookies + credentials:"include", but with the frontend
+ * (Vercel) and backend (Render) on unrelated domains, browsers classify
+ * that cookie as third-party — Safari/Firefox/Brave block it
+ * unconditionally, Chrome blocks it in Incognito and for privacy-toggled
+ * users. A token in a normal header isn't a cookie, so it isn't subject
+ * to any cookie policy anywhere. See lib/token-storage.ts for where the
+ * token itself lives.
  */
 
 import type {
@@ -9,6 +16,7 @@ import type {
   ComplianceSummaryResponse, ChatMessageResponse, ApiErrorResponse, SiteAnalysisResponse,
   ComplianceHistoryEntry,
 } from "./types";
+import { getToken } from "./token-storage";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -22,12 +30,17 @@ export class ApiError extends Error {
   }
 }
 
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
       ...options.headers,
     },
   });
@@ -47,12 +60,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // ---- Auth ----
+export interface AuthResponse {
+  user: UserResponse;
+  token: string;
+}
+
 export const authApi = {
   register: (data: { name: string; email: string; password: string }) =>
     request<UserResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(data) }),
 
   login: (data: { email: string; password: string }) =>
-    request<UserResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(data) }),
+    request<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(data) }),
 
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
 };
@@ -103,7 +121,7 @@ export async function uploadFile(projectId: number, file: File) {
 
   const res = await fetch(`${BASE_URL}/api/projects/${projectId}/upload`, {
     method: "POST",
-    credentials: "include",
+    headers: { ...authHeaders() }, // no Content-Type here — the browser sets the multipart boundary itself
     body: formData,
   });
 
@@ -146,10 +164,22 @@ export const reportApi = {
   list: (projectId: number) =>
     request<AuditReportResponse[]>(`/api/projects/${projectId}/reports`),
 
-  // Not a JSON request — returns a real file download, so this builds the
-  // URL for a direct browser navigation/anchor rather than using `request()`.
+  // A real file download, not JSON — since auth is now a header (not a
+  // cookie the browser attaches automatically), a plain <a>/window.open
+  // link WON'T carry the Authorization header. downloadUrl() alone is no
+  // longer sufficient — see the reports page's download handler, which
+  // fetches the file as a blob (with the header attached) and saves it
+  // via an object URL instead of navigating directly to this URL.
   downloadUrl: (projectId: number, reportId: number) =>
     `${BASE_URL}/api/projects/${projectId}/reports/${reportId}/download`,
+
+  downloadBlob: async (projectId: number, reportId: number): Promise<Blob> => {
+    const res = await fetch(`${BASE_URL}/api/projects/${projectId}/reports/${reportId}/download`, {
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    return res.blob();
+  },
 };
 
 // ---- Chat ----

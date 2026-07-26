@@ -11,8 +11,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -20,7 +19,18 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Session-based authentication configuration.
+ * Bearer-token authentication (STATELESS — no HTTP session, no cookies at
+ * all). Switched from session-cookie auth because the frontend (Vercel)
+ * and backend (Render) are on unrelated domains: browsers classify that
+ * session cookie as third-party and Safari/Firefox/Brave block it
+ * unconditionally (Chrome blocks it too in Incognito, and for any user
+ * who's toggled the relevant privacy setting) — no SameSite/Secure
+ * cookie attribute fixes that classification. A bearer token in a normal
+ * Authorization header isn't a cookie, so it isn't subject to any
+ * cookie policy in any browser.
+ *
+ * See BearerTokenAuthenticationFilter for how the token is validated per
+ * request, and AuthService for how it's issued/revoked.
  */
 @Configuration
 @EnableWebSecurity
@@ -29,11 +39,6 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public SecurityContextRepository securityContextRepository() {
-        return new HttpSessionSecurityContextRepository();
     }
 
     @Bean
@@ -47,10 +52,7 @@ public class SecurityConfig {
             UserDetailsServiceImpl uds,
             PasswordEncoder encoder) {
 
-        // Spring Security 6.5+ constructor
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(uds);
-
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(uds);
         provider.setPasswordEncoder(encoder);
         return provider;
     }
@@ -59,7 +61,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Frontend origin
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
@@ -69,15 +70,16 @@ public class SecurityConfig {
         ));
 
         config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS"
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
         ));
 
         config.setAllowedHeaders(List.of("*"));
+        // No longer strictly required now that auth doesn't rely on cookies,
+        // but harmless to leave on — kept for any future cookie-based need
+        // and so this doesn't have to change again if that comes up.
         config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
@@ -85,26 +87,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(
             HttpSecurity http,
-            SecurityContextRepository contextRepository,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
+            CorsConfigurationSource corsConfigurationSource,
+            BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter) throws Exception {
 
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable()) // CSRF protection is for cookie-based auth; irrelevant to bearer tokens, which aren't automatically attached by the browser
             .sessionManagement(session ->
-                    session.sessionCreationPolicy(
-                            SessionCreationPolicy.IF_REQUIRED))
-            .securityContext(context ->
-                    context.securityContextRepository(contextRepository))
+                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-            	    .requestMatchers("/api/auth/**").permitAll()
-            	    .requestMatchers(
-            	        "/swagger-ui/**",
-            	        "/swagger-ui.html",
-            	        "/api-docs/**"
-            	    ).permitAll()
-            	    .anyRequest().authenticated()
-            	);
+                    .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers(
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/api-docs/**",
+                        "/health"
+                    ).permitAll()
+                    .anyRequest().authenticated()
+            )
+            .addFilterBefore(bearerTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
