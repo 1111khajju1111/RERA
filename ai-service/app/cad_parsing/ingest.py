@@ -10,6 +10,12 @@ def ingest_parsed_dxf(db: Session, project_id: int, parsed: dict) -> dict:
     Creates a Building (if none exists yet for this project) with a single
     Floor (floor_number=0 — see dxf_parser.py docstring on the one-file-one-floor
     limitation), then writes the parsed rooms and components under it.
+
+    Re-uploading a new/revised DXF to the same project replaces that
+    floor's rooms and components rather than adding to them — otherwise
+    every re-upload would pile new rows on top of the previous version's,
+    double-counting area/violations against stale data that no longer
+    matches the current drawing.
     """
     building = db.query(Building).filter(Building.project_id == project_id).first()
     if building is None:
@@ -29,6 +35,12 @@ def ingest_parsed_dxf(db: Session, project_id: int, parsed: dict) -> dict:
     if floor is None:
         floor = Floor(building_id=building.id, floor_number=0)
         db.add(floor)
+        db.flush()
+    else:
+        # Re-analysis of this floor: clear out the previous upload's rooms
+        # and components before writing this one's, so they don't stack.
+        db.query(Room).filter(Room.floor_id == floor.id).delete()
+        db.query(BuildingComponent).filter(BuildingComponent.floor_id == floor.id).delete()
         db.flush()
 
     rooms_created = 0
