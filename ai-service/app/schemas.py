@@ -6,6 +6,13 @@ class ParseCadRequest(BaseModel):
     project_id: int
     project_version_id: Optional[int] = None
     file_path: str
+    # Base64-encoded raw file bytes. The backend and this service are
+    # deployed as separate Render services with separate filesystems, so
+    # file_path alone (a path on the *backend's* disk) is not readable
+    # here. When present, this is parsed instead of touching file_path
+    # directly; file_path is kept only to recover the original extension
+    # and for local dev use, where both services may share a filesystem.
+    file_content_base64: Optional[str] = None
 
 
 class ParseCadResponse(BaseModel):

@@ -8,6 +8,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +18,8 @@ import java.nio.file.StandardCopyOption;
 
 @Service
 public class UploadService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UploadService.class);
 
     private final ProjectVersionRepository projectVersionRepository;
     private final ProjectService projectService;
@@ -69,10 +73,12 @@ public class UploadService {
     public void triggerAiPipeline(Long projectId, Long projectVersionId, String filePath) {
         try {
             aiServiceClient.parseCad(projectId, projectVersionId, filePath);
-            aiServiceClient.runCompliance(projectId, projectVersionId);
+            var complianceResult = aiServiceClient.runCompliance(projectId, projectVersionId);
+            logger.info("Compliance run for project {} version {}: {}", projectId, projectVersionId, complianceResult);
             aiServiceClient.generateSuggestions(projectId);
             projectService.updateStatus(projectId, "AUDITED");
         } catch (Exception e) {
+            logger.error("AI pipeline failed for project {} version {} (file: {})", projectId, projectVersionId, filePath, e);
             projectService.updateStatus(projectId, "PROCESSING_FAILED");
         }
     }

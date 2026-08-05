@@ -5,11 +5,10 @@ import com.rera.auditor.entity.AuditReport;
 import com.rera.auditor.exception.ResourceNotFoundException;
 import com.rera.auditor.mapper.AuditReportMapper;
 import com.rera.auditor.repository.AuditReportRepository;
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.util.List;
 
 @Service
@@ -44,11 +43,11 @@ public class ReportService {
     }
 
     /**
-     * Streams the file straight from disk. Requires the backend and AI
-     * service to share the same filesystem path for reports (see Phase 10
-     * docker-compose's shared `reports_data` volume) — this does NOT proxy
-     * bytes over HTTP from the AI service, it reads the file the AI service
-     * already wrote to a mounted volume both containers can see.
+     * Proxies the file's bytes from ai-service rather than reading local
+     * disk — the backend and ai-service are two separate Render services
+     * with separate filesystems, so a file_path written by ai-service is
+     * never readable here directly. See AiServiceClient.downloadReportFile
+     * and the matching /reports/{id}/file endpoint on the ai-service side.
      */
     public ReportFile download(Long reportId) {
         AuditReport report = auditReportRepository.findById(reportId)
@@ -58,12 +57,9 @@ public class ReportService {
             throw new ResourceNotFoundException("This report has no downloadable file (it's a score snapshot, not a document)");
         }
 
-        File file = new File(report.getFilePath());
-        if (!file.exists()) {
-            throw new ResourceNotFoundException(
-                "Report file is missing on disk at " + report.getFilePath() +
-                " — check that the backend and AI service share the reports volume"
-            );
+        byte[] bytes = aiServiceClient.downloadReportFile(reportId);
+        if (bytes == null || bytes.length == 0) {
+            throw new ResourceNotFoundException("Report file could not be retrieved from the AI service — it may need to be regenerated");
         }
 
         String contentType = switch (report.getFormat()) {
@@ -73,7 +69,15 @@ public class ReportService {
             default -> "application/octet-stream";
         };
 
-        return new ReportFile(new FileSystemResource(file), file.getName(), contentType);
+        String extension = switch (report.getFormat()) {
+            case "PDF" -> "pdf";
+            case "DOCX" -> "docx";
+            case "XLSX" -> "xlsx";
+            default -> "bin";
+        };
+        String filename = "report_" + reportId + "." + extension;
+
+        return new ReportFile(new ByteArrayResource(bytes), filename, contentType);
     }
 
     public record ReportFile(Resource resource, String filename, String contentType) {}

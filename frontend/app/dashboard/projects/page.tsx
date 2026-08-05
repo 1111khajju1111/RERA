@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, Building2, X } from "lucide-react";
+import { Plus, Building2, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,19 @@ export default function ProjectsPage() {
   const [location, setLocation] = useState("");
   const [plotArea, setPlotArea] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await projectApi.remove(id);
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+    } finally {
+      setDeletingId(null);
+      setConfirmingId(null);
+    }
+  }
 
   async function loadProjects() {
     setLoading(true);
@@ -108,10 +121,30 @@ export default function ProjectsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((p, i) => (
             <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Link href={`/dashboard/projects/${p.id}`}>
-                <Card className="glass-card-hover h-full cursor-pointer">
-                  <CardContent>
-                    <div className="mb-3 flex items-start justify-between">
+              <Card className="glass-card-hover relative h-full">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (confirmingId === p.id) {
+                      handleDelete(p.id);
+                    } else {
+                      setConfirmingId(p.id);
+                    }
+                  }}
+                  disabled={deletingId === p.id}
+                  title={confirmingId === p.id ? "Click again to confirm delete" : "Delete project"}
+                  className={`absolute right-3 top-3 z-10 rounded-md p-1.5 transition-colors ${
+                    confirmingId === p.id
+                      ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                      : "text-white/30 hover:bg-white/10 hover:text-red-400"
+                  }`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <Link href={`/dashboard/projects/${p.id}`} onClick={(e) => { if (confirmingId === p.id) e.preventDefault(); }}>
+                  <CardContent className="cursor-pointer">
+                    <div className="mb-3 flex items-start justify-between pr-8">
                       <Building2 className="h-5 w-5 text-brand-cyan" />
                       <Badge tone={statusTone[p.status] || "neutral"}>{p.status}</Badge>
                     </div>
@@ -120,9 +153,12 @@ export default function ProjectsPage() {
                     {p.plotAreaSqm && (
                       <p className="mt-2 text-xs text-white/30">{p.plotAreaSqm} sqm plot</p>
                     )}
+                    {confirmingId === p.id && (
+                      <p className="mt-2 text-xs text-red-400">Click the trash icon again to permanently delete this project.</p>
+                    )}
                   </CardContent>
-                </Card>
-              </Link>
+                </Link>
+              </Card>
             </motion.div>
           ))}
         </div>

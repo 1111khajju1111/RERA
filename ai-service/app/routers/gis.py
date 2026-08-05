@@ -5,7 +5,7 @@ import json
 from app.db import get_db
 from app.schemas import GisAnalyzeRequest, GisAnalyzeResponse
 from app.models import SiteAnalysis, AuditReport
-from app.gis.geocode import geocode_address
+from app.gis.geocode import geocode_address, GeocodeError
 from app.gis.roads import fetch_nearby_roads
 from app.gis.encroachment import check_encroachment
 from app.gis.fire_access import evaluate_and_persist_fire_access
@@ -18,7 +18,10 @@ router = APIRouter(tags=["gis"])
 def analyze(request: GisAnalyzeRequest, db: Session = Depends(get_db)):
     warnings = []
 
-    geocoded = geocode_address(request.address)
+    try:
+        geocoded = geocode_address(request.address)
+    except GeocodeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     if geocoded is None:
         raise HTTPException(status_code=404, detail=f"Could not geocode address: {request.address}")
 

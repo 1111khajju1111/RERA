@@ -4,6 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,9 +37,22 @@ public class AiServiceClient {
     }
 
     public Map<?, ?> parseCad(Long projectId, Long projectVersionId, String filePath) {
+        // The backend and ai-service are two separate Render services,
+        // each with its own disk — a local file_path is meaningless on
+        // the other side. Read the bytes here and send them along so
+        // ai-service never has to touch this filesystem.
+        String fileContentBase64;
+        try {
+            byte[] bytes = Files.readAllBytes(Path.of(filePath));
+            fileContentBase64 = Base64.getEncoder().encodeToString(bytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not read uploaded file at " + filePath + " to send to the AI service: " + e.getMessage(), e);
+        }
+
         return restClient.post()
             .uri("/parse-cad")
-            .body(body("project_id", projectId, "project_version_id", projectVersionId, "file_path", filePath))
+            .body(body("project_id", projectId, "project_version_id", projectVersionId,
+                       "file_path", filePath, "file_content_base64", fileContentBase64))
             .retrieve()
             .body(Map.class);
     }
@@ -85,5 +102,18 @@ public class AiServiceClient {
             .body(Map.of("project_id", projectId, "format", format))
             .retrieve()
             .body(Map.class);
+    }
+
+    /**
+     * Fetches the raw bytes of a generated report from ai-service, which
+     * is the only service that can actually read the file off its own
+     * disk (same cross-service issue as parseCad, output side instead of
+     * input side).
+     */
+    public byte[] downloadReportFile(Long reportId) {
+        return restClient.get()
+            .uri("/reports/{id}/file", reportId)
+            .retrieve()
+            .body(byte[].class);
     }
 }
