@@ -6,7 +6,7 @@ from app.db import get_db
 from app.schemas import GisAnalyzeRequest, GisAnalyzeResponse
 from app.models import SiteAnalysis, AuditReport
 from app.gis.geocode import geocode_address, GeocodeError
-from app.gis.roads import fetch_nearby_roads
+from app.gis.roads import fetch_nearby_roads, RoadDataError
 from app.gis.encroachment import check_encroachment
 from app.gis.fire_access import evaluate_and_persist_fire_access
 from app.rules_engine.scoring import compute_score
@@ -25,7 +25,11 @@ def analyze(request: GisAnalyzeRequest, db: Session = Depends(get_db)):
     if geocoded is None:
         raise HTTPException(status_code=404, detail=f"Could not geocode address: {request.address}")
 
-    road_data = fetch_nearby_roads(geocoded["latitude"], geocoded["longitude"])
+    road_data = None
+    try:
+        road_data = fetch_nearby_roads(geocoded["latitude"], geocoded["longitude"])
+    except RoadDataError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     nearest = road_data["nearest"]
     if nearest is None:
         warnings.append("No roads found within 150m — try a more precise address, or the area may be unmapped in OSM.")

@@ -28,6 +28,13 @@ ESTIMATED_WIDTH_BY_HIGHWAY_TYPE = {
 DEFAULT_ESTIMATED_WIDTH = 4.5
 
 
+class RoadDataError(Exception):
+    """Raised when Overpass itself fails (timeout, rate limit, 5xx) — as
+    opposed to a clean 'no roads within radius' result."""
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 def _local_xy(lat: float, lon: float, ref_lat: float, ref_lon: float) -> tuple[float, float]:
     """Equirectangular projection centered at (ref_lat, ref_lon) — accurate
     enough for distances of a few hundred meters, which is the scale fire
@@ -61,9 +68,18 @@ def fetch_nearby_roads(latitude: float, longitude: float, radius_m: int = 150) -
     way(around:{radius_m},{latitude},{longitude})["highway"];
     out geom;
     """
-    response = httpx.post(OVERPASS_URL, data={"data": query}, timeout=20.0)
-    response.raise_for_status()
-    data = response.json()
+    try:
+        response = httpx.post(OVERPASS_URL, data={"data": query}, timeout=20.0)
+        response.raise_for_status()
+        data = response.json()
+    except httpx.TimeoutException as e:
+        raise RoadDataError(
+            "Overpass API timed out — its public instance can be slow under load. Try again shortly."
+        ) from e
+    except httpx.HTTPStatusError as e:
+        raise RoadDataError(f"Overpass API returned HTTP {e.response.status_code}.") from e
+    except httpx.RequestError as e:
+        raise RoadDataError(f"Could not reach Overpass API: {e}") from e
 
     features = []
     nearest = None
