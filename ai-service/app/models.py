@@ -153,7 +153,17 @@ class AuditReport(Base):
     __tablename__ = "audit_reports"
     id = Column(BigInteger, primary_key=True)
     project_id = Column(BigInteger, ForeignKey("projects.id"))
-    project_version_id = Column(BigInteger, ForeignKey("project_versions.id"), nullable=True)
+    # No ForeignKey(...) here on purpose: the DB-level constraint already
+    # exists (added in V8__version_score_linkage.sql, referencing
+    # project_versions.id). Declaring it here too would require mapping a
+    # ProjectVersion class in this file so SQLAlchemy can resolve the
+    # target table — which nothing here actually needs, since ai-service
+    # only ever writes/reads this as a plain id, never traverses a
+    # relationship to it. Without a mapped target class, SQLAlchemy can't
+    # resolve ForeignKey("project_versions.id") and raises
+    # NoReferencedTableError at mapper-configuration time, breaking every
+    # query through this model — not just ones touching this column.
+    project_version_id = Column(BigInteger, nullable=True)
     compliance_score = Column(Numeric(5, 2))
     approval_probability = Column(Numeric(5, 2))
     file_path = Column(String(500))
