@@ -3,8 +3,6 @@ package com.rera.auditor.service;
 import com.rera.auditor.entity.Project;
 import com.rera.auditor.entity.ProjectVersion;
 import com.rera.auditor.repository.ProjectVersionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -18,8 +16,6 @@ import java.nio.file.StandardCopyOption;
 
 @Service
 public class UploadService {
-
-    private static final Logger logger = LoggerFactory.getLogger(UploadService.class);
 
     private final ProjectVersionRepository projectVersionRepository;
     private final ProjectService projectService;
@@ -63,23 +59,28 @@ public class UploadService {
         ProjectVersion saved = projectVersionRepository.save(version);
 
         project.setStatus("PROCESSING");
-        triggerAiPipeline(projectId, targetPath.toString());
+        triggerAiPipeline(projectId, saved.getId(), targetPath.toString());
 
         return saved;
     }
 
     /** Fire-and-forget call to the AI service so the upload endpoint returns immediately. */
     @Async
-    public void triggerAiPipeline(Long projectId, String filePath) {
+    public void triggerAiPipeline(Long projectId, Long projectVersionId, String filePath) {
         try {
-            aiServiceClient.parseCad(projectId, filePath);
-            aiServiceClient.runCompliance(projectId);
+            aiServiceClient.parseCad(projectId, projectVersionId, filePath);
+            aiServiceClient.runCompliance(projectId, projectVersionId);
             aiServiceClient.generateSuggestions(projectId);
             projectService.updateStatus(projectId, "AUDITED");
         } catch (Exception e) {
-            logger.error("AI pipeline failed for project {} (file: {})", projectId, filePath, e);
             projectService.updateStatus(projectId, "PROCESSING_FAILED");
         }
+    }
+
+    /** Re-runs the AI pipeline against an already-uploaded file (e.g. to retry after a failure, or re-check after a rule update). Does not create a new ProjectVersion. */
+    public void reanalyzeVersion(Long projectId, ProjectVersion version) {
+        projectService.updateStatus(projectId, "PROCESSING");
+        triggerAiPipeline(projectId, version.getId(), version.getFilePath());
     }
 
     private String extractFileType(String filename) {

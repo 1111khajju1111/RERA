@@ -16,6 +16,10 @@ public class AuditReport {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_version_id")
+    private ProjectVersion projectVersion;
+
     @Column(name = "compliance_score", precision = 5, scale = 2)
     private BigDecimal complianceScore;
 
@@ -37,6 +41,8 @@ public class AuditReport {
     public void setId(Long id) { this.id = id; }
     public Project getProject() { return project; }
     public void setProject(Project project) { this.project = project; }
+    public ProjectVersion getProjectVersion() { return projectVersion; }
+    public void setProjectVersion(ProjectVersion projectVersion) { this.projectVersion = projectVersion; }
     public BigDecimal getComplianceScore() { return complianceScore; }
     public void setComplianceScore(BigDecimal complianceScore) { this.complianceScore = complianceScore; }
     public BigDecimal getApprovalProbability() { return approvalProbability; }

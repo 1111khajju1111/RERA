@@ -3,7 +3,7 @@
  * from the Zustand auth-store's persisted blob so lib/api.ts can read it
  * without importing from store/auth-store.ts (which itself imports
  * authApi from lib/api.ts — importing the other way would create a
- * circular dependency between the two modules).
+ * circular dependency).
  */
 
 const TOKEN_KEY = "rera_auth_token";

@@ -14,7 +14,7 @@
 import type {
   UserResponse, ProjectResponse, BuildingResponse, ViolationResponse,
   ComplianceSummaryResponse, ChatMessageResponse, ApiErrorResponse, SiteAnalysisResponse,
-  ComplianceHistoryEntry,
+  ComplianceHistoryEntry, ProjectVersionResponse,
 } from "./types";
 import { getToken } from "./token-storage";
 
@@ -166,10 +166,8 @@ export const reportApi = {
 
   // A real file download, not JSON — since auth is now a header (not a
   // cookie the browser attaches automatically), a plain <a>/window.open
-  // link WON'T carry the Authorization header. downloadUrl() alone is no
-  // longer sufficient — see the reports page's download handler, which
-  // fetches the file as a blob (with the header attached) and saves it
-  // via an object URL instead of navigating directly to this URL.
+  // link WON'T carry the Authorization header. Use downloadBlob() below,
+  // which fetches with the header attached and saves via an object URL.
   downloadUrl: (projectId: number, reportId: number) =>
     `${BASE_URL}/api/projects/${projectId}/reports/${reportId}/download`,
 
@@ -180,6 +178,15 @@ export const reportApi = {
     if (!res.ok) throw new Error(`Download failed: ${res.status}`);
     return res.blob();
   },
+};
+
+// ---- Project Timeline / Versions ----
+export const versionApi = {
+  list: (projectId: number) =>
+    request<ProjectVersionResponse[]>(`/api/projects/${projectId}/versions`),
+
+  reanalyze: (projectId: number, versionId: number) =>
+    request<void>(`/api/projects/${projectId}/versions/${versionId}/reanalyze`, { method: "POST" }),
 };
 
 // ---- Chat ----

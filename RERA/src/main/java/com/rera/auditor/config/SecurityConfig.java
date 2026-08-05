@@ -19,18 +19,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Bearer-token authentication (STATELESS — no HTTP session, no cookies at
- * all). Switched from session-cookie auth because the frontend (Vercel)
- * and backend (Render) are on unrelated domains: browsers classify that
- * session cookie as third-party and Safari/Firefox/Brave block it
- * unconditionally (Chrome blocks it too in Incognito, and for any user
- * who's toggled the relevant privacy setting) — no SameSite/Secure
- * cookie attribute fixes that classification. A bearer token in a normal
- * Authorization header isn't a cookie, so it isn't subject to any
- * cookie policy in any browser.
- *
- * See BearerTokenAuthenticationFilter for how the token is validated per
- * request, and AuthService for how it's issued/revoked.
+ * Bearer-token authentication (STATELESS — no HTTP session, no cookies).
+ * See BearerTokenAuthenticationFilter for per-request validation and
+ * AuthService for issuing/revoking tokens.
  */
 @Configuration
 @EnableWebSecurity
@@ -74,9 +65,6 @@ public class SecurityConfig {
         ));
 
         config.setAllowedHeaders(List.of("*"));
-        // No longer strictly required now that auth doesn't rely on cookies,
-        // but harmless to leave on — kept for any future cookie-based need
-        // and so this doesn't have to change again if that comes up.
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -92,7 +80,7 @@ public class SecurityConfig {
 
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .csrf(csrf -> csrf.disable()) // CSRF protection is for cookie-based auth; irrelevant to bearer tokens, which aren't automatically attached by the browser
+            .csrf(csrf -> csrf.disable())
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth

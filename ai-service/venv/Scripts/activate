@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\ACER\Documents\ai-rera-auditor-complete\ai-rera-auditor\ai-service\venv"
+VIRTUAL_ENV="C:\Users\ACER\Desktop\RERA_AI\RERA\ai-service\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

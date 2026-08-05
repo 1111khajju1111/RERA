@@ -10,10 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class AiReraAuditorApplication {
     public static void main(String[] args) {
-
-       
-		
-
         SpringApplication.run(AiReraAuditorApplication.class, args);
     }
 }

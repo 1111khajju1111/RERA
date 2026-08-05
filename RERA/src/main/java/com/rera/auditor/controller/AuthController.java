@@ -25,7 +25,6 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
-    /** Returns the token in the response body — the frontend stores it and sends it back as "Authorization: Bearer <token>". */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));

@@ -1,15 +1,10 @@
 package com.rera.auditor.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -20,38 +15,35 @@ import java.util.Map;
 @Service
 public class AiServiceClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(AiServiceClient.class);
-
     private final RestClient restClient;
 
     public AiServiceClient(@Value("${ai-service.base-url}") String baseUrl) {
         this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     }
 
-    public Map<?, ?> parseCad(Long projectId, String filePath) {
-        // The backend and ai-service are deployed as two separate Render
-        // services, each with its own disk — a local file_path is
-        // meaningless on the other side. Read the bytes here and send
-        // them along so ai-service never has to touch this filesystem.
-        String fileContentBase64;
-        try {
-            byte[] bytes = Files.readAllBytes(Path.of(filePath));
-            fileContentBase64 = Base64.getEncoder().encodeToString(bytes);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not read uploaded file at " + filePath + " to send to the AI service: " + e.getMessage(), e);
+    // Map.of() throws NullPointerException on any null value — a real risk
+    // since project_version_id is legitimately null for some call sites.
+    // A plain HashMap allows nulls, matching normal JSON serialization.
+    private static Map<String, Object> body(Object... kvPairs) {
+        Map<String, Object> map = new HashMap<>();
+        for (int i = 0; i < kvPairs.length; i += 2) {
+            map.put((String) kvPairs[i], kvPairs[i + 1]);
         }
+        return map;
+    }
 
+    public Map<?, ?> parseCad(Long projectId, Long projectVersionId, String filePath) {
         return restClient.post()
             .uri("/parse-cad")
-            .body(Map.of("project_id", projectId, "file_path", filePath, "file_content_base64", fileContentBase64))
+            .body(body("project_id", projectId, "project_version_id", projectVersionId, "file_path", filePath))
             .retrieve()
             .body(Map.class);
     }
 
-    public Map<?, ?> runCompliance(Long projectId) {
+    public Map<?, ?> runCompliance(Long projectId, Long projectVersionId) {
         return restClient.post()
             .uri("/run-compliance")
-            .body(Map.of("project_id", projectId))
+            .body(body("project_id", projectId, "project_version_id", projectVersionId))
             .retrieve()
             .body(Map.class);
     }

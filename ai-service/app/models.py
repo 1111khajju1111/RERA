@@ -26,12 +26,8 @@ class Project(Base):
     id = Column(BigInteger, primary_key=True)
     user_id = Column(BigInteger, ForeignKey("users.id"))
     name = Column(String(200))
-    description = Column(Text)
-    location = Column(String(255))
     plot_area_sqm = Column(Numeric(10, 2))
     status = Column(String(30))
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
 
     buildings = relationship("Building", back_populates="project")
 
@@ -123,7 +119,6 @@ class Violation(Base):
     detected_value = Column(Numeric(10, 3))
     required_value = Column(Numeric(10, 3))
     status = Column(String(20), default="OPEN")
-    resolution_note = Column(Text)
     detected_at = Column(DateTime, default=datetime.utcnow)
 
     rule = relationship("ComplianceRule")
@@ -153,6 +148,7 @@ class AuditReport(Base):
     __tablename__ = "audit_reports"
     id = Column(BigInteger, primary_key=True)
     project_id = Column(BigInteger, ForeignKey("projects.id"))
+    project_version_id = Column(BigInteger, ForeignKey("project_versions.id"), nullable=True)
     compliance_score = Column(Numeric(5, 2))
     approval_probability = Column(Numeric(5, 2))
     file_path = Column(String(500))

@@ -8,13 +8,16 @@ import java.util.Optional;
 
 public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
 
-    // JOIN FETCH pulls the User row back in the same query, so
-    // BearerTokenAuthenticationFilter gets a real initialized User
-    // instead of a lazy Hibernate proxy that can't load outside a
-    // session. Without this, user.getRole() throws
-    // LazyInitializationException and the request is left
-    // unauthenticated (which then surfaces as a 403 downstream).
-    @Query("SELECT at FROM AuthToken at JOIN FETCH at.user WHERE at.token = :token")
+    /**
+     * JOIN FETCH pulls the associated User eagerly, in the same query —
+     * needed because AuthToken.user is @ManyToOne(LAZY) and
+     * spring.jpa.open-in-view=false means there's no lingering Hibernate
+     * session after this repository call returns. Without the JOIN FETCH,
+     * anything touching token.getUser().getRole() afterwards (as
+     * BearerTokenAuthenticationFilter does) throws
+     * LazyInitializationException: "no session".
+     */
+    @Query("SELECT t FROM AuthToken t JOIN FETCH t.user WHERE t.token = :token")
     Optional<AuthToken> findByToken(@Param("token") String token);
 
     void deleteByToken(String token);

@@ -121,6 +121,17 @@ export interface SiteAnalysisResponse {
   analyzedAt: string;
 }
 
+export interface ProjectVersionResponse {
+  id: number;
+  versionNumber: number;
+  originalFilename: string;
+  fileType: string;
+  notes: string | null;
+  uploadedAt: string;
+  complianceScore: number | null;
+  approvalProbability: number | null;
+}
+
 export interface ApiErrorResponse {
   timestamp: string;
   status: number;

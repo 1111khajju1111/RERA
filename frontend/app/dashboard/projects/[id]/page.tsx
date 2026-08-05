@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, MessageSquare, Layers, Home as HomeIcon, Box, Map, FileText } from "lucide-react";
+import { Upload, MessageSquare, Layers, Home as HomeIcon, Box, Map, FileText, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +88,9 @@ export default function ProjectDetailPage() {
           </Link>
           <Link href={`/dashboard/projects/${projectId}/gis`}>
             <Button variant="secondary" className="gap-2"><Map className="h-4 w-4" /> GIS Dashboard</Button>
+          </Link>
+          <Link href={`/dashboard/projects/${projectId}/timeline`}>
+            <Button variant="secondary" className="gap-2"><History className="h-4 w-4" /> Timeline</Button>
           </Link>
           <Link href={`/dashboard/projects/${projectId}/reports`}>
             <Button variant="secondary" className="gap-2"><FileText className="h-4 w-4" /> Reports</Button>

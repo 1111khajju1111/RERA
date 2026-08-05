@@ -23,18 +23,9 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 
 /**
- * Bearer-token auth, replacing session cookies (see V7 migration for why:
- * frontend and backend are on unrelated domains, so the session cookie
- * was classified as third-party by browsers and blocked outright in
- * Safari/Firefox/Brave/Incognito regardless of SameSite/Secure config).
- *
- * This is a deliberately simple opaque token — not JWT. A random 32-byte
- * value stored in `auth_tokens`, looked up on every request. Simpler to
- * revoke (just delete the row) than a JWT, and doesn't need a signing
- * secret to manage. Trade-off: every authenticated request costs one extra
- * DB lookup compared to a self-contained JWT — fine at this project's
- * scale, worth revisiting only if the token lookup becomes a measured
- * bottleneck.
+ * Bearer-token auth (opaque token, not JWT — simpler to revoke, no
+ * signing secret to manage). See V7 migration for why this replaced
+ * session cookies.
  */
 @Service
 public class AuthService {
@@ -76,7 +67,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         try {
             Authentication authRequest = new UsernamePasswordAuthenticationToken(request.email(), request.password());
-            authenticationManager.authenticate(authRequest); // throws if credentials are wrong
+            authenticationManager.authenticate(authRequest);
 
             User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new AuthenticationFailedException("User not found"));

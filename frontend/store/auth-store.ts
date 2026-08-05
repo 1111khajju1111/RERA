@@ -17,10 +17,7 @@ interface AuthState {
 // `user` here is persisted purely so the UI can optimistically show the
 // logged-in name/avoid a flash-redirect on refresh — it is NOT the
 // mechanism that authenticates API calls. The actual bearer token lives
-// separately in lib/token-storage.ts (see api.ts's authHeaders()), kept
-// out of this Zustand blob deliberately to avoid a circular import
-// between this file (which imports authApi from api.ts) and api.ts
-// (which would otherwise need to import this store to read the token).
+// separately in lib/token-storage.ts (see api.ts's authHeaders()).
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({

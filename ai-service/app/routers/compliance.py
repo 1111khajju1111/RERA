@@ -22,6 +22,7 @@ def run_compliance(request: RunComplianceRequest, db: Session = Depends(get_db))
     score, approval_probability = compute_score(db, request.project_id)
     db.add(AuditReport(
         project_id=request.project_id,
+        project_version_id=request.project_version_id,
         compliance_score=score,
         approval_probability=approval_probability,
         format="SNAPSHOT",  # no file yet — PDF/DOCX/XLSX export is Phase 9
